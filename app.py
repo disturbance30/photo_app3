@@ -41,22 +41,31 @@ def main():
         service = authenticate()
         user_folder_id = get_or_create_folder(service, user_name, PARENT_FOLDER_ID)
         
+        # Initialize or get the session state for uploaded files
+        if 'uploaded_files' not in st.session_state:
+            st.session_state['uploaded_files'] = {}
+
         # Define dimensions and create sections for each
         dimensions = ["10x15", "13x18", "15x20"]
         for dimension in dimensions:
             with st.expander(f"Upload photos for {dimension}:"):
-                uploaded_files = st.file_uploader(f"Choose photos of size {dimension}", accept_multiple_files=True, type=['jpeg', 'jpg', 'png'], key=dimension)
-                if uploaded_files:
+                uploaded_files = st.file_uploader(f"Choose photos of dimension {dimension}", accept_multiple_files=True, type=['jpeg', 'jpg', 'png'], key=dimension)
+                upload_button = st.button(f"Upload {dimension} photos", key=f'upload_{dimension}')
+                
+                if uploaded_files and upload_button:
                     dimension_folder_id = get_or_create_folder(service, dimension, user_folder_id)
                     for uploaded_file in uploaded_files:
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp:
-                            tmp.write(uploaded_file.getvalue())
-                            tmp_path = tmp.name
-                        file_id = upload_photo(service, tmp_path, dimension_folder_id)
-                        st.success(f"Uploaded {uploaded_file.name} successfully for {dimension} dimension! ")
-                        os.unlink(tmp_path)  # Clean up the temporary file
+                        file_key = f"{dimension}_{uploaded_file.name}"
+                        if file_key not in st.session_state['uploaded_files']:
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp:
+                                tmp.write(uploaded_file.getvalue())
+                                tmp_path = tmp.name
+                            file_id = upload_photo(service, tmp_path, dimension_folder_id)
+                            st.session_state['uploaded_files'][file_key] = file_id
+                            st.success(f"Uploaded {uploaded_file.name} successfully for {dimension} dimension!")
+                            os.unlink(tmp_path)  # Clean up the temporary file
+                        else:
+                            st.info(f"{uploaded_file.name} has already been uploaded for {dimension}.")
 
 if __name__ == "__main__":
     main()
-
-
